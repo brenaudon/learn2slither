@@ -1,140 +1,130 @@
-import math
-import os
 import pygame
-from typing import List, Tuple
+from render import load_images, draw_board, CELL, game_over_screen, home_menu, pause_menu, settings_screen
+from engine import init_board, step_forward, change_dir
 
-GRID = 10
-CELL = 48
-MARGIN = 4
-W, H = GRID * CELL, GRID * CELL
-SNAKE_COLOR = (108, 190, 66)
-
-def load_images(cell_size: int):
-    def _ld(name):
-        surf = pygame.image.load(os.path.join("assets", name)).convert_alpha()
-        return pygame.transform.smoothscale(surf, (cell_size, cell_size))
-
-    imgs = {
-        "green": _ld("green_apple.png"),
-        "red":   _ld("red_apple.png"),
-    }
-
-    return {
-        "green": imgs["green"],
-        "red": imgs["red"],
-    }
-
-def get_board():
-    # Replace with: ask C++ over socket/FIFO
-    # Return dict: {"snake":[(hx,hy),(x,y),...], "greens":[(x,y),(x,y)], "red":(x,y) or None}
-    return {
-        "snake": [(5,5), (5,6), (5,7), (6,7), (7,7), (7,6), (7,5), (7,4), (6,4),
-                  (5,4), (4,4), (4,5), (4,6), (4,7), (3,7), (2,7), (2,6), (2,5),
-                  (3,5), (3,4), (3,3), (4,3), (5,3)],
-        "greens": [(2,3),(8,1)],
-        "red": (7,8),
-        "head_dir": "UP",
-    }
-
-def blit_scaled_center(screen, img, cell_x, cell_y, scale = 1.0):
-    """Scale `img` by `scale` and blit centered in the (cell_x, cell_y) tile."""
-    w = h = max(1, int(CELL * scale))
-    scaled = pygame.transform.smoothscale(img, (w, h))
-    px = cell_x * CELL + (CELL - w) // 2 + MARGIN // 2
-    py = cell_y * CELL + (CELL - h) // 2 + MARGIN // 2
-    screen.blit(scaled, (px, py))
-
-def draw_cell(screen, x, y, color):
-    r = pygame.Rect(x * CELL + MARGIN , y * CELL + MARGIN, CELL - MARGIN, CELL - MARGIN)
-    pygame.draw.rect(screen, color, r)
-
-def draw_board(screen, board, imgs, percentage=1.0):
-    BG = (68, 90, 144)
-    EMPTY_ODD = (45, 60, 96)
-    EMPTY_EVEN = (57, 69, 107)
-
-    AMP = 0.10
-    scale = 0.7 + AMP * math.sin(percentage * 2 * math.pi)
-
-    screen.fill(BG)
-    for y in range(GRID):
-        for x in range(GRID):
-            if (x + y) % 2 == 0:
-                draw_cell(screen, x, y, EMPTY_EVEN)
-            else:
-                draw_cell(screen, x, y, EMPTY_ODD)
-    for (gx, gy) in board["greens"]:
-        blit_scaled_center(screen, imgs["green"], gx, gy, scale)
-    if board["red"] is not None:
-        rx, ry = board["red"]
-        blit_scaled_center(screen, imgs["red"], rx, ry, scale)
-
-    snake: List[Tuple[int, int]] = board.get("snake", [])
-    if not snake: return
-
-    for i in range(len(snake)):
-        x, y = snake[i]
-        draw_cell(screen, x, y, SNAKE_COLOR)
-
-    head_x = snake[0][0] * CELL
-    head_y = snake[0][1] * CELL
-    match board.get("head_dir", "UP"):
-        case "UP":
-            pygame.draw.rect(screen, (0,0,0), (head_x + CELL//4 + 1, head_y + CELL//8, CELL//8, CELL//4))
-            pygame.draw.rect(screen, (0,0,0), (head_x + 5*CELL//8 + 1, head_y + CELL//8, CELL//8, CELL//4))
-        case "DOWN":
-            pygame.draw.rect(screen, (0,0,0), (head_x + CELL//4 + 1, head_y + 5*CELL//8, CELL//8, CELL//4))
-            pygame.draw.rect(screen, (0,0,0), (head_x + 5*CELL//8 + 1, head_y + 5*CELL//8, CELL//8, CELL//4))
-        case "LEFT":
-            pygame.draw.rect(screen, (0,0,0), (head_x + CELL//8, head_y + CELL//4 + 1, CELL//4, CELL//8))
-            pygame.draw.rect(screen, (0,0,0), (head_x + CELL//8, head_y + 5*CELL//8 + 1, CELL//4, CELL//8))
-        case "RIGHT":
-            pygame.draw.rect(screen, (0,0,0), (head_x + 5*CELL//8, head_y + CELL//4 + 1, CELL//4, CELL//8))
-            pygame.draw.rect(screen, (0,0,0), (head_x + 5*CELL//8, head_y + 5*CELL//8 + 1, CELL//4, CELL//8))
-        case _:
-            pass
-
-def main():
-    pygame.init()
-    screen = pygame.display.set_mode((W, H))
-    pygame.display.set_caption("Snake Viewer")
+def game_loop(screen, grid_size=10):
+    running = True
     clock = pygame.time.Clock()
 
     paused = False
-    step_mode = True       # project requires a step-by-step mode
-    base_fps = 20
+    step_mode = True # step-by-step mode by default
+    base_fps = 60
     speed_mult = 1.0
-    PULSE_PERIOD = 1.2
+    pulse_period = 1.2
+
+    # how often the snake advances when running (seconds per cell)
+    step_period = 0.12
+    step_accum = 0.0
+
+    state = init_board(grid_size)
 
     images = load_images(CELL)
 
-    running = True
     while running:
+        dt = clock.tick(int(base_fps * speed_mult)) / 1000.0
+        step_accum += dt
+
         # ---- input ----
         for e in pygame.event.get():
-            if e.type == pygame.QUIT: running = False
+            if e.type == pygame.QUIT:
+                return False
             elif e.type == pygame.KEYDOWN:
-                print(e.key)
-                print("Paused:", pygame.K_SPACE, " Step:", pygame.K_s, " Next:", pygame.K_n)
-                if e.key == pygame.K_SPACE: paused = not paused
-                elif e.key == pygame.K_n:    pass  # single step tick (ask agent to advance 1 step)
-                elif e.key == pygame.K_s:    step_mode = not step_mode
-                elif e.key == pygame.K_LEFTBRACKET:  speed_mult = max(0.25, speed_mult/1.5)
-                elif e.key == pygame.K_RIGHTBRACKET: speed_mult = min(8.0, speed_mult*1.5)
+                if e.key == pygame.K_SPACE and not paused:
+                    bg_shot = screen.copy()
+                    choice = pause_menu(screen, bg_surface=bg_shot)
+                    if choice == "resume":
+                        clock.tick(int(base_fps * speed_mult))
+                        step_accum = 0.0
+                        break
+                    elif choice == "home":
+                        return True
+                    else:  # "quit"
+                        return False
+
+                elif e.key == pygame.K_ESCAPE:
+                    running = False
+                elif not paused:
+                    if e.key == pygame.K_n and step_mode:
+                        state = step_forward(state, grid_size)
+                    elif e.key == pygame.K_m:
+                        step_mode = not step_mode
+                        step_accum = 0.0
+                    elif e.key == pygame.K_MINUS:
+                        speed_mult = max(0.25, speed_mult / 1.1)
+                    elif e.key == pygame.K_EQUALS:
+                        speed_mult = min(8.0, speed_mult * 1.1)
+                    elif e.key == pygame.K_w:
+                        change_dir(state, "UP")
+                    elif e.key == pygame.K_s:
+                        change_dir(state, "DOWN")
+                    elif e.key == pygame.K_a:
+                        change_dir(state, "LEFT")
+                    elif e.key == pygame.K_d:
+                        change_dir(state, "RIGHT")
 
         # ---- advance game (agent tick) ----
         if not paused and not step_mode:
-            pass  # tell C++ agent to tick here
+            while step_accum >= (step_period / speed_mult):
+                step_accum -= (step_period / speed_mult)
+                state = step_forward(state, grid_size)
+
+        if state.get("game_over", False):
+            bg_shot = screen.copy()
+            choice = game_over_screen(
+                screen,
+                bg_surface=bg_shot,
+                length=len(state["snake"])
+            )
+            if choice == "restart":
+                state = init_board(grid_size)
+                step_accum = 0.0
+                step_mode = True
+                continue  # back into the game loop
+            elif choice == "quit":
+                return True
+            else:  # "quit_window"
+                return False
 
         t = pygame.time.get_ticks() / 1000.0
-        percentage = (t % PULSE_PERIOD) / PULSE_PERIOD
+        percentage = (t % pulse_period) / pulse_period
 
         # ---- render ----
-        state = get_board()  # or cache last reply from tick
-        draw_board(screen, state, images, percentage)
+        draw_board(screen, state, grid_size, images, percentage)
         pygame.display.flip()
+    return True
 
-        clock.tick(int(base_fps * speed_mult))
+
+def main():
+    pygame.init()
+
+    current_grid = 10
+    current_model = "model1"
+    w, h = current_grid * CELL, current_grid * CELL
+    screen = pygame.display.set_mode((w, h))
+    pygame.display.set_caption("Learn2Slither")
+
+    running = True
+
+    while running:
+        choice = home_menu(screen)
+        if choice == "play":
+            running = game_loop(screen, grid_size=current_grid)
+        elif choice == "ai":
+            pass
+            # start AI-controlled game
+        elif choice == "settings":
+            choice, grid_size, model = settings_screen(screen, grid_size=current_grid, model_name=current_model)
+            if choice == "save":
+                current_grid = grid_size
+                current_model = model
+                w, h = max(480, current_grid * CELL), max(480, current_grid * CELL)
+                screen = pygame.display.set_mode((w, h))
+            elif choice == "back":
+                pass  # nothing changed
+            elif choice == "quit":
+                running = False
+        elif choice == "quit":
+            running = False
 
     pygame.quit()
 
