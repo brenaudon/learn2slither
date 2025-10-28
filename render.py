@@ -569,20 +569,19 @@ def settings_screen(screen, *, grid_size=10, model_name=None, models_dir="models
     Blocks until user saves or backs out.
     Returns: ("save", grid, model) or ("back", grid, model) or ("quit", grid, model)
     """
-    W, H = screen.get_size()
-    clock = pygame.time.Clock()
+    w, h = screen.get_size()
 
     title_f = pygame.font.SysFont(None, 56, bold=True)
     small_f = pygame.font.SysFont(None, 22)
-    body_f  = pygame.font.SysFont(None, 28)
-    btn_f   = pygame.font.SysFont(None, 30)
+    body_f = pygame.font.SysFont(None, 28)
+    btn_f = pygame.font.SysFont(None, 30)
 
     # panel
-    panel_w, panel_h = min(900, int(W*0.92)), min(540, int(H*0.85))
-    panel = pygame.Rect((W-panel_w)//2, (H-panel_h)//2, panel_w, panel_h)
+    panel_w, panel_h = min(900, int(w * 0.92)), min(540, int(h * 0.85))
+    panel = pygame.Rect((w - panel_w) // 2, (h - panel_h) // 2, panel_w, panel_h)
 
     # left: slider area
-    slider_w = min(420, panel_w//2 - 40)
+    slider_w = min(420, panel_w // 2 - 40)
     slider_rect = pygame.Rect(panel.left + 40, panel.top + 140, slider_w, 18)
 
     slider = Slider(slider_rect, 8, 20, grid_size, integer=True)
@@ -606,8 +605,6 @@ def settings_screen(screen, *, grid_size=10, model_name=None, models_dir="models
     t0 = time.time()
 
     while True:
-        dt = clock.tick(60) / 1000.0
-
         # events
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
@@ -628,21 +625,21 @@ def settings_screen(screen, *, grid_size=10, model_name=None, models_dir="models
         # background/panel
         screen.fill(bg_color)
         _draw_shadow(screen, panel, radius=22, offset=(0,10), blur=14, alpha=150)
-        _draw_round_rect(screen, panel, (28,32,38), radius=22)
+        _draw_round_rect(screen, panel, (28, 32, 38), radius=22)
 
         # title + subtitle
-        title = title_f.render("Settings", True, (240,244,248))
-        screen.blit(title, title.get_rect(midtop=(W//2, panel.top + 22)))
-        subtitle = small_f.render("Configure grid size and pick an AI model", True, (170,178,188))
-        screen.blit(subtitle, subtitle.get_rect(midtop=(W//2, panel.top + 22 + 46)))
+        title = title_f.render("Settings", True, (240, 244, 248))
+        screen.blit(title, title.get_rect(midtop=(w // 2, panel.top + 22)))
+        subtitle = small_f.render("Configure grid size and pick an AI model", True, (170, 178, 188))
+        screen.blit(subtitle, subtitle.get_rect(midtop=(w // 2, panel.top + 22 + 46)))
 
         # left column: grid size slider
-        left_title = body_f.render("Grid Size", True, (200,210,220))
+        left_title = body_f.render("Grid Size", True, (200, 210, 220))
         screen.blit(left_title, (panel.left + 40, panel.top + 90))
-        slider.draw(screen, body_f, "Grid", accent=(86,156,255))
+        slider.draw(screen, body_f, "Grid", accent=(86, 156, 255))
 
         # right column: model list
-        listbox.draw(screen, body_f, label="Models", accent=(86,156,255))
+        listbox.draw(screen, body_f, label="Models", accent=(86, 156, 255))
 
         # buttons
         _, click_back = _button(screen, btn_back, "Back", btn_f)
@@ -657,7 +654,7 @@ def settings_screen(screen, *, grid_size=10, model_name=None, models_dir="models
         elapsed = (time.time() - t0) * 1000.0
         if elapsed < fade_ms:
             a = int(255 * (1 - elapsed / fade_ms))
-            f = pygame.Surface((W, H))
+            f = pygame.Surface((w, h))
             f.set_alpha(a)
             f.fill((0, 0, 0))
             screen.blit(f, (0, 0))
