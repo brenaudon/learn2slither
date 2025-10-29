@@ -40,7 +40,7 @@ jobs:
             --make-html \
             --html-output site/python \
             --docformat=epytext \
-            $(find src/python -type f -name '*.py' -print)
+            $(find src -type f -name '*.py' -print)
 
       # ---------- C++ / Doxygen ----------
       - name: Install Doxygen + Graphviz
