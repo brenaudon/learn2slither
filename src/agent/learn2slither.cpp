@@ -1,3 +1,21 @@
+/*!
+ *  @file learn2slither.cpp
+ *  @brief Pybind11 bindings and engine for the Learn2Slither project.
+ *
+ *  This module exposes a C++ "Engine" to Python, so the Python front-end can:
+ *    - reset the board,
+ *    - move the snake forward one step,
+ *    - change the direction safely (no instant reversal into the neck),
+ *    - fetch the current board snapshot (snake, apples, flags).
+ *
+ *  The engine implements the project’s board rules:
+ *    - Grid with two green apples and one red apple.
+ *    - Snake of length 3 at start, contiguous, placed randomly.
+ *    - Moving into a wall or itself => game over.
+ *    - Eating green => grow by +1 and respawn a green.
+ *    - Eating red => shrink by 1 and respawn the red.
+ */
+
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>      // std::vector, std::pair, std::array -> Python lists/tuples
 #include <pybind11/functional.h>
@@ -10,8 +28,20 @@
 
 namespace py = pybind11;
 
+/**
+ * @enum Dir
+ * @brief Cardinal directions for the snake head.
+ *
+ * The NONE value is used as a sentinel where a direction is not applicable.
+ */
 enum class Dir { UP, DOWN, LEFT, RIGHT, NONE };
 
+/**
+ * @brief Return the opposite of a given direction.
+ *
+ * @param d Input direction.
+ * @return The opposite direction (or NONE for NONE).
+ */
 static inline Dir opposite(Dir d) {
     switch (d) {
         case Dir::UP: return Dir::DOWN;
@@ -22,6 +52,12 @@ static inline Dir opposite(Dir d) {
     }
 }
 
+/**
+ * @brief Convert a Dir enum value to a string.
+ *
+ * @param d Input direction.
+ * @return Corresponding string representation.
+ */
 static inline const char* to_str(Dir d) {
     switch (d) {
         case Dir::UP: return "UP";
@@ -32,6 +68,12 @@ static inline const char* to_str(Dir d) {
     }
 }
 
+/**
+ * @brief Convert a string to a Dir enum value.
+ *
+ * @param s Input string.
+ * @return Corresponding Dir value (or NONE if unrecognized).
+ */
 static inline Dir from_str(const std::string& s) {
     if (s == "UP") return Dir::UP;
     if (s == "DOWN") return Dir::DOWN;
@@ -40,6 +82,12 @@ static inline Dir from_str(const std::string& s) {
     return Dir::NONE;
 }
 
+/**
+ * @brief 2D vector (dx,dy) corresponding to a direction.
+ *
+ * @param d Direction.
+ * @return Pair of delta (dx, dy).
+ */
 static inline std::pair<int,int> vec(Dir d) {
     switch (d) {
         case Dir::UP: return {0, -1};
@@ -50,25 +98,42 @@ static inline std::pair<int,int> vec(Dir d) {
     }
 }
 
+/**
+ * @brief Engine implementing the Learn2Slither board logic.
+ *
+ * Fields are intentionally public to keep the implementation straightforward; use the
+ * member functions to mutate state safely.
+ */
 struct Engine {
     // --- config / params
-    int grid = 10;
+    int grid = 10; ///< Current grid size (width==height==grid).
 
     // --- board state
-    std::vector<std::pair<int,int>> snake; // head first
-    std::vector<std::pair<int,int>> greens; // 2 greens
-    std::pair<int,int> red{-1, -1}; // red apple or (-1,-1) if none
-    Dir head_dir = Dir::UP;
-    bool game_over = false;
+    std::vector<std::pair<int,int>> snake;  ///< Snake body, head first.
+    std::vector<std::pair<int,int>> greens; ///< Two green apples.
+    std::pair<int,int> red{-1, -1};         ///< Red apple (or (-1,-1) if absent).
+    Dir head_dir = Dir::UP;                 ///< Current head direction.
+    bool game_over = false;                 ///< Game over flag.
 
-    std::mt19937 rng;
+    std::mt19937 rng;  ///< Random number generator.
 
+    /**
+     * @brief Construct the engine and initialize a 10×10 board.
+     *
+     * Seeds RNG from high-resolution clock.
+     */
     Engine()
      : rng(static_cast<unsigned>(
                std::chrono::high_resolution_clock::now().time_since_epoch().count())) {
         reset_board(10);
     }
 
+    /**
+     * @brief Get direction from head to neck (used to forbid instant reverse).
+     *
+     * @param snake Body with head at index 0.
+     * @return Dir toward the neck, or NONE if snake length < 2.
+     */
     static Dir get_neck_dir(const std::vector<std::pair<int,int>>& snake) {
         if (snake.size() < 2) return Dir::NONE;
         int hx = snake[0].first;
@@ -84,6 +149,17 @@ struct Engine {
         return Dir::NONE;
     }
 
+     /**
+      * @brief Reset the board to a fresh random state.
+      *
+      * Rules:
+      *  - place two distinct green apples and one red apple,
+      *  - place a contiguous 3-cell snake not colliding with apples,
+      *  - set head_dir opposite to neck direction,
+      *  - ensure the very first forward move does not immediately collide.
+      *
+      * @param g New grid size.
+      */
     void reset_board(int grid_size) {
         grid = grid_size;
 
@@ -151,7 +227,12 @@ struct Engine {
         }
     }
 
-
+    /**
+     * @brief Move the snake forward one step according to current head_dir.
+     *
+     * Handles collisions, eating green/red apples, growing/shrinking.
+     * Sets game_over flag if the move results in a collision or invalid state.
+     */
     void step_forward() {
         if (game_over) return;
 
@@ -224,6 +305,13 @@ struct Engine {
         }
     }
 
+    /**
+     * @brief Change the snake's head direction safely.
+     *
+     * Prevents instant reversal into the neck segment.
+     *
+     * @param new_dir_s New direction as a string ("UP", "DOWN", "LEFT", "RIGHT").
+     */
     void change_dir(std::string& new_dir_s) {
         Dir new_dir = from_str(new_dir_s);
         Dir neck = get_neck_dir(snake);
@@ -232,7 +320,18 @@ struct Engine {
         }
     }
 
-    // return data in Python-native shapes
+    /**
+     * @brief Get the current board state as a Python dictionary.
+     *
+     * The dictionary contains:
+     *  - "snake": list of (x,y) tuples for the snake body,
+     *  - "greens": list of (x,y) tuples for green apples,
+     *  - "red": (x,y) tuple for red apple,
+     *  - "head_dir": string for head direction,
+     *  - "game_over": boolean flag.
+     *
+     * @return Python dictionary representing the board state.
+     */
     py::dict get_board() const {
         py::dict b;
         b["snake"] = snake; // list of (x,y) tuples
@@ -244,16 +343,24 @@ struct Engine {
     }
 };
 
+/**
+ * @brief Pybind11 module definition.
+ *
+ * Exposes:
+ *   - class Engine
+ *     - reset_board(grid:int)
+ *     - change_dir(new_dir: Engine.Dir)
+ *     - step_forward()
+ *     - get_board() -> dict
+ *   - enum Engine.Dir {UP, RIGHT, DOWN, LEFT, NONE}
+ */
 PYBIND11_MODULE(_agent, m) {
     m.doc() = "Learn2Slither C++ agent exposed to Python via pybind11";
 
     py::class_<Engine>(m, "Engine")
         .def(py::init<>())
-        // release the GIL during heavy work to keep Python UI responsive
-        .def("reset_board", &Engine::reset_board, py::arg("grid"),
-             py::call_guard<py::gil_scoped_release>())
-        .def("step_forward", &Engine::step_forward,
-             py::call_guard<py::gil_scoped_release>())
+        .def("reset_board", &Engine::reset_board, py::arg("grid"))
+        .def("step_forward", &Engine::step_forward)
         .def("change_dir", &Engine::change_dir, py::arg("new_dir"))
         .def("get_board", &Engine::get_board);
 }

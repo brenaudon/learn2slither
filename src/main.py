@@ -1,9 +1,28 @@
+"""
+Main module for the Learn2Slither game.
+
+Dependencies:
+    - pygame
+    - pathlib
+    - render module for rendering and UI
+    - agent module for game logic
+"""
+
 import pygame
 from pathlib import Path
 from render import load_images, draw_board, CELL, game_over_screen, home_menu, pause_menu, settings_screen
 import agent
 
 def game_loop(screen, grid_size=10, assets_path=Path("./assets")):
+    """
+    Main game loop for human-controlled gameplay.
+
+    @param screen: Pygame display surface
+    @param grid_size: Size of the game grid (grid_size x grid_size)
+    @param assets_path: Path to the assets directory
+
+    @return: True if returning to main menu, False if quitting the game
+    """
     running = True
     clock = pygame.time.Clock()
 
@@ -99,6 +118,9 @@ def game_loop(screen, grid_size=10, assets_path=Path("./assets")):
 
 
 def main():
+    """
+    Main function to run the Learn2Slither game.
+    """
     pygame.init()
 
     current_grid = 10

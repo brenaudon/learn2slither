@@ -1,3 +1,15 @@
+"""
+This script handles the rendering of a snake game using Pygame. It includes functions for loading images,
+drawing the game board, displaying menus (home, pause, game over, settings, ...), and creating UI elements like sliders and list boxes.
+
+Dependencies:
+    - os
+    - math
+    - time
+    - pygame
+    - typing (List, Tuple)
+"""
+
 import os
 import math
 import time
@@ -6,10 +18,33 @@ from typing import List, Tuple
 
 
 CELL = 48
+"""Size of one grid cell (pixels).
+@type: int
+"""
+
 MARGIN = 4
+"""Margin between grid cells (pixels).
+@type: int
+"""
+
 
 def load_images(cell_size: int, assets_path="assets"):
+    """
+    Load and scale game images from the assets directory.
+
+    @param cell_size: Size to scale images to (width and height)
+    @param assets_path: Path to the assets directory
+
+    @return: Dictionary of loaded and scaled images
+    """
     def _ld(name):
+        """
+        Load and scale a single image.
+
+        @param name: Filename of the image to load
+
+        @return: Scaled Pygame surface
+        """
         surf = pygame.image.load(os.path.join(assets_path, name)).convert_alpha()
         return pygame.transform.smoothscale(surf, (cell_size, cell_size))
 
@@ -23,19 +58,53 @@ def load_images(cell_size: int, assets_path="assets"):
         "red": imgs["red"],
     }
 
+
 def blit_scaled_center(screen, img, cell_x, cell_y, scale = 1.0):
-    """Scale `img` by `scale` and blit centered in the (cell_x, cell_y) tile."""
+    """
+    Scale `img` by `scale` and blit centered in the (cell_x, cell_y) tile.
+
+    @param screen: Pygame display surface
+    @param img: Pygame surface to scale and blit
+    @param cell_x: X coordinate of the cell
+    @param cell_y: Y coordinate of the cell
+    @param scale: Scaling factor
+
+    @return: None
+    """
     w = h = max(1, int(CELL * scale))
     scaled = pygame.transform.smoothscale(img, (w, h))
     px = cell_x * CELL + (CELL - w) // 2 + MARGIN // 2
     py = cell_y * CELL + (CELL - h) // 2 + MARGIN // 2
     screen.blit(scaled, (px, py))
 
+
 def draw_cell(screen, x, y, color):
+    """
+    Draw a single cell at (x, y) with the specified color.
+
+    @param screen: Pygame display surface
+    @param x: X coordinate of the cell
+    @param y: Y coordinate of the cell
+    @param color: Color to fill the cell with
+
+    @return: None
+    """
     r = pygame.Rect(x * CELL + MARGIN , y * CELL + MARGIN, CELL - MARGIN, CELL - MARGIN)
     pygame.draw.rect(screen, color, r)
 
+
 def draw_board(screen, board, grid_size, imgs, percentage=1.0):
+    """
+    Draw the game board on the screen.
+
+    @param screen: Pygame display surface
+    @param board: Dictionary representing the game state
+    @param grid_size: Size of the game grid (grid_size x grid_size)
+    @param imgs: Dictionary of loaded images
+    @param percentage: Animation percentage for scaling effects (0.0 to 1.0)
+
+    @return: None
+    """
     bg = (68, 90, 144)
     empty_odd = (45, 60, 96)
     empty_even = (57, 69, 107)
@@ -82,10 +151,35 @@ def draw_board(screen, board, grid_size, imgs, percentage=1.0):
         case _:
             pass
 
+
 def _draw_round_rect(surf, rect, color, radius=16, width=0):
+    """
+    Draw a rectangle with rounded corners.
+
+    @param surf: Pygame surface to draw on
+    @param rect: Rectangle area to draw (pygame.Rect)
+    @param color: Color of the rectangle
+    @param radius: Radius of the rounded corners
+    @param width: Width of the rectangle border (0 for filled)
+
+    @return: None
+    """
     pygame.draw.rect(surf, color, rect, width=width, border_radius=radius)
 
+
 def _draw_shadow(surf, rect, radius=16, offset=(0, 8), blur=12, alpha=140):
+    """
+    Draw a shadow effect for a rounded rectangle.
+
+    @param surf: Pygame surface to draw on
+    @param rect: Rectangle area for the shadow (pygame.Rect)
+    @param radius: Radius of the rounded corners
+    @param offset: Offset of the shadow (x, y)
+    @param blur: Number of blur layers
+    @param alpha: Maximum alpha value for the shadow
+
+    @return: None
+    """
     x, y, w, h = rect
     ox, oy = offset
     for i in range(blur):
@@ -94,7 +188,21 @@ def _draw_shadow(surf, rect, radius=16, offset=(0, 8), blur=12, alpha=140):
         pygame.draw.rect(s, (0, 0, 0, a), s.get_rect(), border_radius=radius + i)
         surf.blit(s, (x + ox, y + oy))
 
+
 def _button(surf, rect, text, font, *, base=(45, 50, 58), hover=(70, 80, 95), text_col=(240, 244, 248)):
+    """
+    Draw a button and handle hover/click state.
+
+    @param surf: Pygame surface to draw on
+    @param rect: Rectangle area for the button (pygame.Rect)
+    @param text: Text to display on the button
+    @param font: Pygame font to use for the text
+    @param base: Base color of the button
+    @param hover: Hover color of the button
+    @param text_col: Color of the button text
+
+    @return: Tuple (hovered: bool, clicked: bool)
+    """
     mouse = pygame.mouse.get_pos()
     pressed = pygame.mouse.get_pressed()[0]
     hl = rect.collidepoint(mouse)
@@ -106,10 +214,17 @@ def _button(surf, rect, text, font, *, base=(45, 50, 58), hover=(70, 80, 95), te
     clicked = hl and pressed
     return hl, clicked
 
+
 def _fast_blur(surface, scale=0.22, passes=2):
     """
     Cheap 'Gaussian-like' blur:
     scale down to a small surface then scale back up; repeat 'passes' times.
+
+    @param surface: Pygame surface to blur
+    @param scale: Scaling factor for downscaling
+    @param passes: Number of blur passes
+
+    @return: Blurred Pygame surface
     """
     w, h = surface.get_size()
     tmp = surface
@@ -120,10 +235,17 @@ def _fast_blur(surface, scale=0.22, passes=2):
         tmp   = pygame.transform.smoothscale(small, (w, h))
     return tmp
 
+
 def game_over_screen(screen, *, bg_surface, length, bg_dim=160):
     """
-    Blocks until user chooses. Returns 'restart' or 'quit'.
-    Call after you detect game-over in your main loop.
+    Draws GAme Over screen. Blocks until user picks an option. Returns: 'restart', 'quit', or 'quit_window'.
+
+    @param screen: Pygame display surface
+    @param bg_surface: Background surface to blur
+    @param length: Length of the snake achieved
+    @param bg_dim: Alpha value for dimming the background (0-255)
+
+    @return: User choice as a string
     """
     w, h = screen.get_size()
     clock = pygame.time.Clock()
@@ -225,9 +347,15 @@ def game_over_screen(screen, *, bg_surface, length, bg_dim=160):
 
     return choice
 
+
 def home_menu(screen, *, bg_color=(18, 20, 24)):
     """
-    Blocks until user picks an option. Returns: 'play', 'ai', 'settings', or 'quit'.
+    Draws Home menu. Blocks until user picks an option. Returns: 'play', 'ai', 'settings', or 'quit'.
+
+    @param screen: Pygame display surface
+    @param bg_color: Background color of the menu
+
+    @return: User choice as a string
     """
     w, h = screen.get_size()
     clock = pygame.time.Clock()
@@ -316,11 +444,19 @@ def home_menu(screen, *, bg_color=(18, 20, 24)):
 
         pygame.display.flip()
 
+
 def pause_menu(screen, *, bg_surface=None, bg_dim=140):
     """
+    Draws Pause menu.
     Blocks until user chooses an action.
     Returns: 'resume', 'home', or 'quit'.
     Keys: Space/Enter -> resume, H -> home, Esc/Q -> quit.
+
+    @param screen: Pygame display surface
+    @param bg_surface: Background surface to blur (if None, uses current screen)
+    @param bg_dim: Alpha value for dimming the background (0-255)
+
+    @return: User choice as a string
     """
     w, h = screen.get_size()
     clock = pygame.time.Clock()
@@ -411,8 +547,21 @@ def pause_menu(screen, *, bg_surface=None, bg_dim=140):
 
         pygame.display.flip()
 
+
 class Slider:
+    """
+    A horizontal slider widget.
+    """
     def __init__(self, rect, vmin, vmax, value, *, integer=True):
+        """
+        Initialize the slider.
+
+        @param rect: Rectangle area for the slider (x, y, w, h)
+        @param vmin: Minimum value of the slider
+        @param vmax: Maximum value of the slider
+        @param value: Initial value of the slider
+        @param integer: Whether the slider value should be an integer
+        """
         self.rect = pygame.Rect(rect)
         self.vmin = vmin
         self.vmax = vmax
@@ -421,6 +570,13 @@ class Slider:
         self.dragging = False
 
     def _pos_to_value(self, x):
+        """
+        Convert a position x to a slider value.
+
+        @param x: X coordinate to convert
+
+        @return: Corresponding slider value
+        """
         t = (x - self.rect.x) / max(1, self.rect.w)
         t = max(0.0, min(1.0, t))
         v = self.vmin + t * (self.vmax - self.vmin)
@@ -429,6 +585,13 @@ class Slider:
         return v
 
     def handle_event(self, e):
+        """
+        Handle Pygame events for the slider.
+
+        @param e: Pygame event to handle
+
+        @return: None
+        """
         if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and self.rect.collidepoint(e.pos):
             self.dragging = True
             self.value = self._pos_to_value(e.pos[0])
@@ -438,13 +601,34 @@ class Slider:
             self.value = self._pos_to_value(e.pos[0])
 
     def nudge(self, delta):
+        """
+        Nudge the slider value by delta.
+
+        @param delta: Amount to nudge the slider value by
+
+        @return: None
+        """
         v = self.value + delta
         v = max(self.vmin, min(self.vmax, v))
         if self.integer:
             v = int(v)
         self.value = v
 
-    def draw(self, surf, font, label, *, accent=(86,156,255), track=(55,60,68), fill=(86,156,255), text=(235,239,245)):
+    def draw(self, surf, font, label, *, accent=(86, 156, 255), track=(55, 60, 68), fill=(86, 156, 255), text=(235, 239, 245)):
+        """
+        Draw the slider on the given surface.
+
+        @param surf: Pygame surface to draw on
+        @param font: Pygame font to use for text
+        @param label: Label text for the slider
+        @param accent: Color for the slider handle
+        @param track: Color for the slider track
+        @param fill: Color for the filled portion of the slider
+        @param text: Color for the text
+
+        @return: None
+        """
+
         # label
         lab = font.render(f"{label}: {self.value}", True, text)
         surf.blit(lab, (self.rect.x, self.rect.y - 28))
@@ -467,7 +651,17 @@ class Slider:
 
 # ---------- listbox widget ----------
 class ListBox:
+    """
+    A scrollable list box widget.
+    """
     def __init__(self, rect, items, selected=None):
+        """
+        Initialize the list box.
+
+        @param rect: Rectangle area for the list box (x, y, w, h)
+        @param items: List of string items to display
+        @param selected: Initially selected item (string)
+        """
         self.rect = pygame.Rect(rect)
         self.items = items[:]  # list of strings
         self.selected = 0 if items else -1
@@ -478,6 +672,14 @@ class ListBox:
         self.pad = 6
 
     def set_items(self, items, keep_selection_name=None):
+        """
+        Update the list of items in the list box.
+
+        @param items: New list of string items
+        @param keep_selection_name: Item name to keep selected if it exists
+
+        @return: None
+        """
         self.items = items[:]
         if keep_selection_name and keep_selection_name in self.items:
             self.selected = self.items.index(keep_selection_name)
@@ -486,6 +688,13 @@ class ListBox:
         self.scroll = 0
 
     def handle_event(self, e):
+        """
+        Handle Pygame events for the list box.
+
+        @param e: Pygame event to handle
+
+        @return: None
+        """
         if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and self.rect.collidepoint(e.pos):
             # pick by click
             idx = (e.pos[1] - self.rect.y) // self.item_h + self.scroll
@@ -506,15 +715,41 @@ class ListBox:
                         self.scroll -= 1
 
     def visible_count(self):
+        """
+        Calculate the number of visible items in the list box.
+
+        @return: Number of visible items
+        """
         return max(1, self.rect.h // self.item_h)
 
     def get_selected(self):
+        """
+        Get the currently selected item.
+
+        @return: Selected item string or None if no selection
+        """
         if 0 <= self.selected < len(self.items):
             return self.items[self.selected]
         return None
 
     def draw(self, surf, font, label, *, bg=(34, 38, 44), row=(45, 50, 58), row_hover=(70, 80, 95),
              text=(235, 239, 245), muted=(170, 178, 189), accent=(86, 156, 255)):
+        """
+        Draw the list box on the given surface.
+
+        @param surf: Pygame surface to draw on
+        @param font: Pygame font to use for text
+        @param label: Label text for the list box
+        @param bg: Background color of the list box
+        @param row: Color of the list box rows
+        @param row_hover: Color of the row when hovered
+        @param text: Color of the item text
+        @param muted: Color for muted text
+        @param accent: Color for the selected item accent
+
+        @return: None
+        """
+
         # label
         lab = font.render(label, True, muted)
         surf.blit(lab, (self.rect.x, self.rect.y - 28))
@@ -554,6 +789,14 @@ class ListBox:
 
 # ---------- utilities ----------
 def _scan_models(models_dir):
+    """
+    Scan the models directory for available model files (.txt).
+    Returns a sorted list of model names (file stems).
+
+    @param models_dir: Directory to scan for model files
+
+    @return: Sorted list of model names
+    """
     names = []
     try:
         for fn in os.listdir(models_dir):
@@ -566,8 +809,17 @@ def _scan_models(models_dir):
 # ---------- settings screen ----------
 def settings_screen(screen, *, grid_size=10, model_name=None, models_dir="models", bg_color=(18, 20, 24)):
     """
+    Draws Settings screen for grid size and model selection.
     Blocks until user saves or backs out.
     Returns: ("save", grid, model) or ("back", grid, model) or ("quit", grid, model)
+
+    @param screen: Pygame display surface
+    @param grid_size: Initial grid size value
+    @param model_name: Initially selected model name
+    @param models_dir: Directory to scan for model files
+    @param bg_color: Background color of the screen
+
+    @return: Tuple (action: str, grid_size: int, model_name: str)
     """
     w, h = screen.get_size()
 
