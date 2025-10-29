@@ -12,7 +12,7 @@ GENERATE_LATEX         = NO
 GENERATE_XML           = NO
 
 # ---------- Inputs ----------
-INPUT                  = include src
+INPUT                  = src
 FILE_PATTERNS          = *.h *.hpp *.hh *.ipp *.c *.cc *.cpp *.cxx
 RECURSIVE              = YES
 
