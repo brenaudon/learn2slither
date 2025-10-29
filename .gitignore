@@ -6,3 +6,5 @@ __pycache__/
 */__pycache__/
 /learn2slither
 .build/
+*/learn2slither_agent.egg-info
+*.so

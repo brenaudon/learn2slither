@@ -2,6 +2,7 @@ import pygame
 from pathlib import Path
 from render import load_images, draw_board, CELL, game_over_screen, home_menu, pause_menu, settings_screen
 from engine import init_board, step_forward, change_dir
+import agent
 
 def game_loop(screen, grid_size=10, assets_path=Path("./assets")):
     running = True
@@ -18,6 +19,10 @@ def game_loop(screen, grid_size=10, assets_path=Path("./assets")):
     step_accum = 0.0
 
     state = init_board(grid_size)
+
+    env = agent.Env()
+    env.reset(10)
+    board = env.get_board()
 
     images = load_images(CELL, assets_path=assets_path)
 
@@ -105,7 +110,7 @@ def main():
     pygame.display.set_caption("Learn2Slither")
 
     file_path = Path(__file__).resolve().parent
-    root_path = file_path / "../.."
+    root_path = file_path / ".."
     models_path = root_path / "models"
     assets_path = root_path / "assets"
 
@@ -125,7 +130,6 @@ def main():
                 current_model = model
                 w, h = max(480, current_grid * CELL), max(480, current_grid * CELL)
                 screen = pygame.display.set_mode((w, h))
-                home_menu(screen)
             elif choice == "back":
                 pass  # nothing changed
             elif choice == "quit":
