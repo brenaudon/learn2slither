@@ -1,0 +1,103 @@
+name: Build & Deploy Docs
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+# Permissions for Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Prevent overlapping Pages deployments
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---------- Python / pydoctor ----------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pydoctor
+        run: pip install pydoctor
+
+      - name: Build Python docs (pydoctor -> site/python)
+        run: |
+          mkdir -p site/python
+          pydoctor \
+            --project-name "Learn2Slither (Python API)" \
+            --make-html \
+            --html-output site/python \
+            --docformat=epytext \
+            $(find src/python -type f -name '*.py' -print)
+
+      # ---------- C++ / Doxygen ----------
+      - name: Install Doxygen + Graphviz
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen graphviz
+
+      - name: Build C++ docs (Doxygen -> site/cpp)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen graphviz
+          DOXYFILE="docs/cpp/Doxyfile"   # or "Doxyfile" if you keep it at repo root
+          mkdir -p site/cpp
+          # Override only for CI publish path
+          if grep -q '^OUTPUT_DIRECTORY' "$DOXYFILE"; then
+            sed -i 's|^OUTPUT_DIRECTORY *=.*|OUTPUT_DIRECTORY = site/cpp|' "$DOXYFILE"
+          else
+            echo 'OUTPUT_DIRECTORY = site/cpp' >> "$DOXYFILE"
+          fi
+          # Ensure HTML lands directly under site/cpp/
+          if grep -q '^HTML_OUTPUT' "$DOXYFILE"; then
+            sed -i 's|^HTML_OUTPUT *=.*|HTML_OUTPUT = .|' "$DOXYFILE"
+          else
+            echo 'HTML_OUTPUT = .' >> "$DOXYFILE"
+          fi
+          doxygen "$DOXYFILE"
+
+      # ---------- Site scaffolding ----------
+      - name: Add .nojekyll
+        run: touch site/.nojekyll
+
+      - name: Create top-level index linking to both docs
+        run: |
+          cat > site/index.html <<'EOF'
+          <!doctype html>
+          <meta charset="utf-8">
+          <title>Project Documentation</title>
+          <h1>Project Documentation</h1>
+          <ul>
+            <li><a href="python/">Python API (pydoctor)</a></li>
+            <li><a href="cpp/">C++ API (Doxygen)</a></li>
+          </ul>
+          EOF
+
+      # ---------- Upload + Deploy ----------
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
