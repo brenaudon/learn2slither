@@ -68,17 +68,17 @@ def draw_board(screen, board, grid_size, imgs, percentage=1.0):
     head_y = snake[0][1] * CELL
     match board.get("head_dir", "UP"):
         case "UP":
-            pygame.draw.rect(screen, (0,0,0), (head_x + CELL//4 + 1, head_y + CELL//8, CELL//8, CELL//4))
-            pygame.draw.rect(screen, (0,0,0), (head_x + 5*CELL//8 + 1, head_y + CELL//8, CELL//8, CELL//4))
+            pygame.draw.rect(screen, (0, 0, 0), (head_x + CELL // 4 + 1, head_y + CELL // 8, CELL // 8, CELL // 4))
+            pygame.draw.rect(screen, (0, 0, 0), (head_x + 5 * CELL // 8 + 1, head_y + CELL // 8, CELL // 8, CELL // 4))
         case "DOWN":
-            pygame.draw.rect(screen, (0,0,0), (head_x + CELL//4 + 1, head_y + 5*CELL//8, CELL//8, CELL//4))
-            pygame.draw.rect(screen, (0,0,0), (head_x + 5*CELL//8 + 1, head_y + 5*CELL//8, CELL//8, CELL//4))
+            pygame.draw.rect(screen, (0, 0, 0), (head_x + CELL // 4 + 1, head_y + 5 * CELL // 8, CELL // 8, CELL // 4))
+            pygame.draw.rect(screen, (0, 0, 0), (head_x + 5 * CELL // 8 + 1, head_y + 5 * CELL // 8, CELL // 8, CELL // 4))
         case "LEFT":
-            pygame.draw.rect(screen, (0,0,0), (head_x + CELL//8, head_y + CELL//4 + 1, CELL//4, CELL//8))
-            pygame.draw.rect(screen, (0,0,0), (head_x + CELL//8, head_y + 5*CELL//8 + 1, CELL//4, CELL//8))
+            pygame.draw.rect(screen, (0, 0, 0), (head_x + CELL // 8, head_y + CELL // 4 + 1, CELL // 4, CELL // 8))
+            pygame.draw.rect(screen, (0, 0, 0), (head_x + CELL // 8, head_y + 5 * CELL // 8 + 1, CELL // 4, CELL // 8))
         case "RIGHT":
-            pygame.draw.rect(screen, (0,0,0), (head_x + 5*CELL//8, head_y + CELL//4 + 1, CELL//4, CELL//8))
-            pygame.draw.rect(screen, (0,0,0), (head_x + 5*CELL//8, head_y + 5*CELL//8 + 1, CELL//4, CELL//8))
+            pygame.draw.rect(screen, (0, 0, 0), (head_x + 5 * CELL // 8, head_y + CELL // 4 + 1, CELL // 4, CELL // 8))
+            pygame.draw.rect(screen, (0, 0, 0), (head_x + 5 * CELL // 8, head_y + 5 * CELL // 8 + 1, CELL // 4, CELL // 8))
         case _:
             pass
 
@@ -86,20 +86,20 @@ def _draw_round_rect(surf, rect, color, radius=16, width=0):
     pygame.draw.rect(surf, color, rect, width=width, border_radius=radius)
 
 def _draw_shadow(surf, rect, radius=16, offset=(0, 8), blur=12, alpha=140):
-    x,y,w,h = rect
-    ox,oy = offset
+    x, y, w, h = rect
+    ox, oy = offset
     for i in range(blur):
         a = int(alpha * (1 - i/(blur+1)))
         s = pygame.Surface((w, h), pygame.SRCALPHA)
-        pygame.draw.rect(s, (0,0,0,a), s.get_rect(), border_radius=radius+i)
-        surf.blit(s, (x+ox, y+oy))
+        pygame.draw.rect(s, (0, 0, 0, a), s.get_rect(), border_radius=radius + i)
+        surf.blit(s, (x + ox, y + oy))
 
 def _button(surf, rect, text, font, *, base=(45, 50, 58), hover=(70, 80, 95), text_col=(240, 244, 248)):
     mouse = pygame.mouse.get_pos()
     pressed = pygame.mouse.get_pressed()[0]
     hl = rect.collidepoint(mouse)
     col = hover if hl else base
-    _draw_shadow(surf, rect, radius=14, offset=(0,4), blur=6, alpha=90)
+    _draw_shadow(surf, rect, radius=14, offset=(0, 4), blur=6, alpha=90)
     _draw_round_rect(surf, rect, col, radius=14)
     label = font.render(text, True, text_col)
     surf.blit(label, label.get_rect(center=rect.center))
@@ -125,7 +125,7 @@ def game_over_screen(screen, *, bg_surface, length, bg_dim=160):
     Blocks until user chooses. Returns 'restart' or 'quit'.
     Call after you detect game-over in your main loop.
     """
-    W, H = screen.get_size()
+    w, h = screen.get_size()
     clock = pygame.time.Clock()
     title_f = pygame.font.SysFont(None, 64, bold=True)
     big_f   = pygame.font.SysFont(None, 36)
@@ -134,13 +134,13 @@ def game_over_screen(screen, *, bg_surface, length, bg_dim=160):
     # Precompute blur (once)
     blurred = _fast_blur(bg_surface, scale=0.22, passes=2)
     # Dim the blurred bg slightly
-    dim = pygame.Surface((W, H), pygame.SRCALPHA)
+    dim = pygame.Surface((w, h), pygame.SRCALPHA)
     dim.fill((0, 0, 0, bg_dim))  # alpha 0..255
 
-    panel = pygame.Rect(W // 2 - 360, H // 2 - 180, 720, 320)
+    panel = pygame.Rect(w // 2 - 360, h // 2 - 180, 720, 320)
     btn_w, btn_h, gap = 200, 56, 20
-    btn_restart = pygame.Rect(W // 2 - btn_w - gap // 2, panel.bottom - btn_h - 24, btn_w, btn_h)
-    btn_quit = pygame.Rect(W // 2 + gap // 2, panel.bottom - btn_h - 24, btn_w, btn_h)
+    btn_restart = pygame.Rect(w // 2 - btn_w - gap // 2, panel.bottom - btn_h - 24, btn_w, btn_h)
+    btn_quit = pygame.Rect(w // 2 + gap // 2, panel.bottom - btn_h - 24, btn_w, btn_h)
 
     # fade-in
     t0 = time.time()
@@ -180,24 +180,24 @@ def game_over_screen(screen, *, bg_surface, length, bg_dim=160):
         screen.blit(dim, (0, 0))
 
         # panel
-        _draw_shadow(screen, panel, radius=20, offset=(0,10), blur=12, alpha=140)
+        _draw_shadow(screen, panel, radius=20, offset=(0, 10), blur=12, alpha=140)
         _draw_round_rect(screen, panel, (28, 32, 38), radius=20)
 
         # title
         title = title_f.render("Game Over", True, (240, 244, 248))
-        screen.blit(title, title.get_rect(midtop=(W // 2, panel.top + 24)))
+        screen.blit(title, title.get_rect(midtop=(w // 2, panel.top + 24)))
 
         # stats
         y_stats = panel.top + 100
         l_txt = big_f.render(f"Length: {length}", True, (220, 225, 232))
-        screen.blit(l_txt, l_txt.get_rect(center=(W // 2, y_stats)))
+        screen.blit(l_txt, l_txt.get_rect(center=(w // 2, y_stats)))
         y_stats += 34
 
         # hint (pulsing)
         pulse = 0.6 + 0.4 * (0.5 + 0.5 * math.sin(pulser * 4.0))
         hint = small_f.render("Press R to Restart — Q/Esc to Quit", True,
                               (int(200 * pulse), int(210 * pulse), int(220 * pulse)))
-        screen.blit(hint, hint.get_rect(midtop=(W // 2, panel.bottom - btn_h - 60)))
+        screen.blit(hint, hint.get_rect(midtop=(w // 2, panel.bottom - btn_h - 60)))
 
         # buttons
         _, clicked_restart = _button(screen, btn_restart, "Restart", big_f)
@@ -216,7 +216,7 @@ def game_over_screen(screen, *, bg_surface, length, bg_dim=160):
         elapsed = (time.time() - t0) * 1000
         if elapsed < fade_ms:
             a = int(255 * (1 - elapsed / fade_ms))
-            f = pygame.Surface((W, H))
+            f = pygame.Surface((w, h))
             f.set_alpha(a)
             f.fill((0, 0, 0))
             screen.blit(f, (0, 0))
@@ -225,11 +225,11 @@ def game_over_screen(screen, *, bg_surface, length, bg_dim=160):
 
     return choice
 
-def home_menu(screen, *, bg_color=(18,20,24)):
+def home_menu(screen, *, bg_color=(18, 20, 24)):
     """
     Blocks until user picks an option. Returns: 'play', 'ai', 'settings', or 'quit'.
     """
-    W, H = screen.get_size()
+    w, h = screen.get_size()
     clock = pygame.time.Clock()
     title_f = pygame.font.SysFont(None, 64, bold=True)
     sub_f = pygame.font.SysFont(None, 22)
@@ -237,13 +237,13 @@ def home_menu(screen, *, bg_color=(18,20,24)):
     small_f = pygame.font.SysFont(None, 24)
 
     # responsive layout
-    panel_w, panel_h = min(760, int(W * 0.9)), min(420, int(H * 0.75))
-    panel = pygame.Rect((W - panel_w) // 2, (H - panel_h) // 2, panel_w, panel_h)
+    panel_w, panel_h = min(760, int(w * 0.9)), min(420, int(h * 0.75))
+    panel = pygame.Rect((w - panel_w) // 2, (h - panel_h) // 2, panel_w, panel_h)
 
     gap = 16
     bw = min(300, panel_w - 120)
     bh = 56
-    cx = W // 2
+    cx = w // 2
     y0 = panel.centery - bh - gap
 
     btn_play = pygame.Rect(cx - bw // 2, y0, bw, bh)
@@ -281,10 +281,10 @@ def home_menu(screen, *, bg_color=(18,20,24)):
         _draw_round_rect(screen, panel, (28, 32, 38), radius=22)
 
         # title + subtitle
-        title = title_f.render("Learn2Slither", True, (240,244,248))
-        screen.blit(title, title.get_rect(midtop=(W//2, panel.top + 26)))
-        subtitle = sub_f.render("Reinforcement-learning snake — choose an option", True, (170,178,188))
-        screen.blit(subtitle, subtitle.get_rect(midtop=(W//2, panel.top + 26 + 52)))
+        title = title_f.render("Learn2Slither", True, (240, 244, 248))
+        screen.blit(title, title.get_rect(midtop=(w // 2, panel.top + 26)))
+        subtitle = sub_f.render("Reinforcement-learning snake — choose an option", True, (170, 178, 188))
+        screen.blit(subtitle, subtitle.get_rect(midtop=(w // 2, panel.top + 26 + 52)))
 
         # draw buttons (mouse)
         _, click_play = _button(screen, btn_play, "Play", btn_f)
@@ -294,7 +294,7 @@ def home_menu(screen, *, bg_color=(18,20,24)):
         pulse = 0.6 + 0.4 * (0.5 + 0.5 * math.sin(pulser * 4.0))
         hint = small_f.render("Press Q/Esc to Quit", True,
                               (int(200 * pulse), int(210 * pulse), int(220 * pulse)))
-        screen.blit(hint, hint.get_rect(midtop=(W // 2, panel.bottom - 32)))
+        screen.blit(hint, hint.get_rect(midtop=(w // 2, panel.bottom - 32)))
 
         # keyboard focus ring
         focus_rect = buttons[focused].inflate(8, 8)
@@ -309,7 +309,7 @@ def home_menu(screen, *, bg_color=(18,20,24)):
         elapsed = (time.time() - t0) * 1000.0
         if elapsed < fade_ms:
             a = int(255 * (1 - elapsed / fade_ms))
-            f = pygame.Surface((W, H))
+            f = pygame.Surface((w, h))
             f.set_alpha(a)
             f.fill((0, 0, 0))
             screen.blit(f, (0, 0))
@@ -322,7 +322,7 @@ def pause_menu(screen, *, bg_surface=None, bg_dim=140):
     Returns: 'resume', 'home', or 'quit'.
     Keys: Space/Enter -> resume, H -> home, Esc/Q -> quit.
     """
-    W, H = screen.get_size()
+    w, h = screen.get_size()
     clock = pygame.time.Clock()
     title_f = pygame.font.SysFont(None, 56, bold=True)
     sub_f = pygame.font.SysFont(None, 22)
@@ -332,16 +332,16 @@ def pause_menu(screen, *, bg_surface=None, bg_dim=140):
     if bg_surface is None:
         bg_surface = screen.copy()
     blurred = _fast_blur(bg_surface, scale=0.22, passes=2)
-    dim = pygame.Surface((W, H), pygame.SRCALPHA)
+    dim = pygame.Surface((w, h), pygame.SRCALPHA)
     dim.fill((0, 0, 0, bg_dim))
 
     # panel + buttons
-    panel_w, panel_h = min(760, int(W * 0.9)), min(300, int(H * 0.7))
-    panel = pygame.Rect((W - panel_w) // 2, (H - panel_h) // 2, panel_w, panel_h)
+    panel_w, panel_h = min(760, int(w * 0.9)), min(300, int(h * 0.7))
+    panel = pygame.Rect((w - panel_w) // 2, (h - panel_h) // 2, panel_w, panel_h)
 
     bw, bh, gap = 220, 56, 18
-    btn_resume = pygame.Rect(W // 2 - bw - gap // 2, panel.centery + 20, bw, bh)
-    btn_home = pygame.Rect(W // 2 + gap // 2, panel.centery + 20, bw, bh)
+    btn_resume = pygame.Rect(w // 2 - bw - gap // 2, panel.centery + 20, bw, bh)
+    btn_home = pygame.Rect(w // 2 + gap // 2, panel.centery + 20, bw, bh)
 
     focused = 0  # 0=resume, 1=home (keyboard)
     buttons = [btn_resume, btn_home]
@@ -381,11 +381,11 @@ def pause_menu(screen, *, bg_surface=None, bg_dim=140):
 
         # title + hint
         title = title_f.render("Paused", True, (240, 244, 248))
-        screen.blit(title, title.get_rect(midtop=(W // 2, panel.top + 22)))
+        screen.blit(title, title.get_rect(midtop=(w // 2, panel.top + 22)))
         pulse = 0.6 + 0.4 * (0.5 + 0.5 * math.sin(pulser * 4.0))
         hint = sub_f.render("Space: Resume - H: Home - Esc: Quit", True,
                               (int(200 * pulse), int(210 * pulse), int(220 * pulse)))
-        screen.blit(hint, hint.get_rect(midtop=(W // 2, panel.top + 22 + 46)))
+        screen.blit(hint, hint.get_rect(midtop=(w // 2, panel.top + 22 + 46)))
 
         # buttons
         _, clicked_resume = _button(screen, btn_resume, "Resume", btn_f)
@@ -404,7 +404,7 @@ def pause_menu(screen, *, bg_surface=None, bg_dim=140):
         elapsed = (time.time() - t0) * 1000.0
         if elapsed < fade_ms:
             a = int(255 * (1 - elapsed / fade_ms))
-            f = pygame.Surface((W, H))
+            f = pygame.Surface((w, h))
             f.set_alpha(a)
             f.fill((0, 0, 0))
             screen.blit(f, (0, 0))
@@ -513,14 +513,14 @@ class ListBox:
             return self.items[self.selected]
         return None
 
-    def draw(self, surf, font, label, *, bg=(34,38,44), row=(45,50,58), row_hover=(70,80,95),
-             text=(235,239,245), muted=(170,178,189), accent=(86,156,255)):
+    def draw(self, surf, font, label, *, bg=(34, 38, 44), row=(45, 50, 58), row_hover=(70, 80, 95),
+             text=(235, 239, 245), muted=(170, 178, 189), accent=(86, 156, 255)):
         # label
         lab = font.render(label, True, muted)
         surf.blit(lab, (self.rect.x, self.rect.y - 28))
 
         # box
-        _draw_shadow(surf, self.rect, radius=12, offset=(0,4), blur=8, alpha=100)
+        _draw_shadow(surf, self.rect, radius=12, offset=(0, 4), blur=8, alpha=100)
         _draw_round_rect(surf, self.rect, bg, radius=12)
 
         # items
@@ -534,18 +534,18 @@ class ListBox:
             idx = self.scroll + i
             if idx >= len(self.items):
                 break
-            r = pygame.Rect(self.rect.x + self.pad, self.rect.y + i*self.item_h + self.pad//2,
-                            self.rect.w - 2*self.pad, self.item_h - self.pad)
+            r = pygame.Rect(self.rect.x + self.pad, self.rect.y + i * self.item_h + self.pad // 2,
+                            self.rect.w - 2 * self.pad, self.item_h - self.pad)
             bgc = row_hover if idx == hover_idx else row
             if idx == self.selected:
                 # selection tint
-                bgc = tuple(min(255, int(a*0.6 + b*0.4)) for a,b in zip(bgc, accent))
+                bgc = tuple(min(255, int(a * 0.6 + b * 0.4)) for a, b in zip(bgc, accent))
                 pygame.draw.rect(surf, bgc, r, border_radius=8)
                 pygame.draw.rect(surf, accent, r, width=2, border_radius=8)
             else:
                 pygame.draw.rect(surf, bgc, r, border_radius=8)
             txt = font.render(self.items[idx], True, text)
-            surf.blit(txt, (r.x + 10, r.y + (r.h - txt.get_height())//2))
+            surf.blit(txt, (r.x + 10, r.y + (r.h - txt.get_height()) // 2))
 
         # empty note
         if not self.items:
@@ -564,7 +564,7 @@ def _scan_models(models_dir):
     return sorted(names, key=str.lower)
 
 # ---------- settings screen ----------
-def settings_screen(screen, *, grid_size=10, model_name=None, models_dir="models", bg_color=(18,20,24)):
+def settings_screen(screen, *, grid_size=10, model_name=None, models_dir="models", bg_color=(18, 20, 24)):
     """
     Blocks until user saves or backs out.
     Returns: ("save", grid, model) or ("back", grid, model) or ("quit", grid, model)
@@ -608,12 +608,12 @@ def settings_screen(screen, *, grid_size=10, model_name=None, models_dir="models
         # events
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
-                return ("quit", slider.value, listbox.get_selected())
+                return "quit", slider.value, listbox.get_selected()
             if e.type == pygame.KEYDOWN:
                 if e.key in (pygame.K_ESCAPE, pygame.K_q):
-                    return ("back", slider.value, listbox.get_selected())
+                    return "back", slider.value, listbox.get_selected()
                 elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
-                    return ("save", slider.value, listbox.get_selected())
+                    return "save", slider.value, listbox.get_selected()
                 elif e.key in (pygame.K_LEFT, pygame.K_a):
                     slider.nudge(-1)
                 elif e.key in (pygame.K_RIGHT, pygame.K_d):

@@ -1,7 +1,6 @@
 import pygame
 from pathlib import Path
 from render import load_images, draw_board, CELL, game_over_screen, home_menu, pause_menu, settings_screen
-from engine import init_board, step_forward, change_dir
 import agent
 
 def game_loop(screen, grid_size=10, assets_path=Path("./assets")):
@@ -18,11 +17,8 @@ def game_loop(screen, grid_size=10, assets_path=Path("./assets")):
     step_period = 0.12
     step_accum = 0.0
 
-    state = init_board(grid_size)
-
-    env = agent.Env()
-    env.reset(10)
-    board = env.get_board()
+    engine = agent.Engine()
+    engine.reset_board(grid_size)
 
     images = load_images(CELL, assets_path=assets_path)
 
@@ -51,7 +47,7 @@ def game_loop(screen, grid_size=10, assets_path=Path("./assets")):
                     running = False
                 elif not paused:
                     if e.key == pygame.K_n and step_mode:
-                        state = step_forward(state, grid_size)
+                        engine.step_forward()
                     elif e.key == pygame.K_m:
                         step_mode = not step_mode
                         step_accum = 0.0
@@ -60,19 +56,21 @@ def game_loop(screen, grid_size=10, assets_path=Path("./assets")):
                     elif e.key == pygame.K_EQUALS:
                         speed_mult = min(8.0, speed_mult * 1.1)
                     elif e.key == pygame.K_w:
-                        change_dir(state, "UP")
+                        engine.change_dir("UP")
                     elif e.key == pygame.K_s:
-                        change_dir(state, "DOWN")
+                        engine.change_dir("DOWN")
                     elif e.key == pygame.K_a:
-                        change_dir(state, "LEFT")
+                        engine.change_dir("LEFT")
                     elif e.key == pygame.K_d:
-                        change_dir(state, "RIGHT")
+                        engine.change_dir("RIGHT")
 
         # ---- advance game (agent tick) ----
         if not paused and not step_mode:
             while step_accum >= (step_period / speed_mult):
                 step_accum -= (step_period / speed_mult)
-                state = step_forward(state, grid_size)
+                engine.step_forward()
+
+        state = engine.get_board()
 
         if state.get("game_over", False):
             bg_shot = screen.copy()
@@ -82,7 +80,7 @@ def game_loop(screen, grid_size=10, assets_path=Path("./assets")):
                 length=len(state["snake"])
             )
             if choice == "restart":
-                state = init_board(grid_size)
+                engine.reset_board(grid_size)
                 step_accum = 0.0
                 step_mode = True
                 continue  # back into the game loop
