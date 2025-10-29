@@ -8,9 +8,9 @@ from typing import List, Tuple
 CELL = 48
 MARGIN = 4
 
-def load_images(cell_size: int):
+def load_images(cell_size: int, assets_path="assets"):
     def _ld(name):
-        surf = pygame.image.load(os.path.join("assets", name)).convert_alpha()
+        surf = pygame.image.load(os.path.join(assets_path, name)).convert_alpha()
         return pygame.transform.smoothscale(surf, (cell_size, cell_size))
 
     imgs = {
@@ -553,7 +553,7 @@ class ListBox:
             surf.blit(note, note.get_rect(center=self.rect.center))
 
 # ---------- utilities ----------
-def _scan_models(models_dir="models"):
+def _scan_models(models_dir):
     names = []
     try:
         for fn in os.listdir(models_dir):

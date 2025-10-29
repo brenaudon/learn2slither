@@ -1,8 +1,9 @@
 import pygame
+from pathlib import Path
 from render import load_images, draw_board, CELL, game_over_screen, home_menu, pause_menu, settings_screen
 from engine import init_board, step_forward, change_dir
 
-def game_loop(screen, grid_size=10):
+def game_loop(screen, grid_size=10, assets_path=Path("./assets")):
     running = True
     clock = pygame.time.Clock()
 
@@ -18,7 +19,7 @@ def game_loop(screen, grid_size=10):
 
     state = init_board(grid_size)
 
-    images = load_images(CELL)
+    images = load_images(CELL, assets_path=assets_path)
 
     while running:
         dt = clock.tick(int(base_fps * speed_mult)) / 1000.0
@@ -103,22 +104,28 @@ def main():
     screen = pygame.display.set_mode((w, h))
     pygame.display.set_caption("Learn2Slither")
 
+    file_path = Path(__file__).resolve().parent
+    root_path = file_path / "../.."
+    models_path = root_path / "models"
+    assets_path = root_path / "assets"
+
     running = True
 
     while running:
         choice = home_menu(screen)
         if choice == "play":
-            running = game_loop(screen, grid_size=current_grid)
+            running = game_loop(screen, grid_size=current_grid, assets_path=assets_path)
         elif choice == "ai":
             pass
             # start AI-controlled game
         elif choice == "settings":
-            choice, grid_size, model = settings_screen(screen, grid_size=current_grid, model_name=current_model)
+            choice, grid_size, model = settings_screen(screen, grid_size=current_grid, model_name=current_model, models_dir=models_path)
             if choice == "save":
                 current_grid = grid_size
                 current_model = model
                 w, h = max(480, current_grid * CELL), max(480, current_grid * CELL)
                 screen = pygame.display.set_mode((w, h))
+                home_menu(screen)
             elif choice == "back":
                 pass  # nothing changed
             elif choice == "quit":
