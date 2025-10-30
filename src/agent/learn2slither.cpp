@@ -11,18 +11,19 @@
  */
 
 #include "include/learn2slither.hpp"
-#include "engine.cpp" // Include the engine implementation
+#include "include/engine.hpp"
+#include "include/train.hpp"
+
 
 /**
  * @brief Pybind11 module definition.
  *
  * Exposes:
- *   - class Engine
- *     - reset_board(grid:int)
- *     - change_dir(new_dir: Engine.Dir)
- *     - step_forward()
- *     - get_board() -> dict
- *   - enum Engine.Dir {UP, RIGHT, DOWN, LEFT, NONE}
+ *   - reset_board(grid:int)
+ *   - change_dir(new_dir: Engine.Dir)
+ *   - step_forward()
+ *   - get_board() -> dict
+ *   - train()
  */
 PYBIND11_MODULE(_agent, m) {
     m.doc() = "Learn2Slither C++ agent exposed to Python via pybind11";
@@ -33,4 +34,8 @@ PYBIND11_MODULE(_agent, m) {
         .def("step_forward", &Engine::step_forward)
         .def("change_dir", &Engine::change_dir, py::arg("new_dir"))
         .def("get_board", &Engine::get_board);
+
+    py::class_<Train>(m, "Train")
+        .def(py::init<>())
+        .def("train", &Train::train);
 }

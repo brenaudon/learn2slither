@@ -10,15 +10,16 @@
  *    - Eating red => shrink by 1 and respawn the red.
  */
 
-#include "include/learn2slither.hpp"
+#include "include/engine.hpp"
+#include <fstream>
+#include <random>
+#include <unordered_map>
+#include <array>
+#include <string>
+#include <stdbool.h>
+#include <iostream>
 
-/**
- * @enum Dir
- * @brief Cardinal directions for the snake head.
- *
- * The NONE value is used as a sentinel where a direction is not applicable.
- */
-enum class Dir { UP, DOWN, LEFT, RIGHT, NONE };
+
 
 /**
  * @brief Return the opposite of a given direction.
@@ -82,318 +83,238 @@ static inline std::pair<int,int> vec(Dir d) {
     }
 }
 
-/**
- * @brief Engine implementing the Learn2Slither board logic.
- *
- * Fields are intentionally public to keep the implementation straightforward; use the
- * member functions to mutate state safely.
- */
-struct Engine {
-    // --- config / params
-    int grid = 10; ///< Current grid size (width==height==grid).
 
-    // --- board state
-    std::vector<std::pair<int,int>> snake;  ///< Snake body, head first.
-    std::vector<std::pair<int,int>> greens; ///< Two green apples.
-    std::pair<int,int> red{-1, -1};         ///< Red apple (or (-1,-1) if absent).
-    Dir head_dir = Dir::UP;                 ///< Current head direction.
-    bool game_over = false;                 ///< Game over flag.
+Engine::Engine(): rng_engine(42) {
+    reset_board(10);
+}
 
-    std::mt19937 rng;  ///< Random number generator.
+Dir Engine::get_neck_dir(const std::vector<std::pair<int,int>>& snake) {
+    if (snake.size() < 2) return Dir::NONE;
+    int hx = snake[0].first;
+    int hy = snake[0].second;
+    int nx = snake[1].first;
+    int ny = snake[1].second;
+    int dx = nx - hx;
+    int dy = ny - hy;
+    if (dx ==  0 && dy == -1) return Dir::UP;
+    if (dx ==  0 && dy ==  1) return Dir::DOWN;
+    if (dx == -1 && dy ==  0) return Dir::LEFT;
+    if (dx ==  1 && dy ==  0) return Dir::RIGHT;
+    return Dir::NONE;
+}
 
-    /**
-     * @brief Construct the engine and initialize a 10×10 board.
-     *
-     * Seeds RNG from high-resolution clock.
-     */
-    Engine()
-     : rng(static_cast<unsigned>(
-               std::chrono::high_resolution_clock::now().time_since_epoch().count())) {
-        reset_board(10);
+void Engine::reset_board(int grid_size) {
+    grid = grid_size;
+
+    snake.clear();
+    greens.clear();
+    red = {-1, -1};
+    game_over = false;
+
+    // place snake
+    std::pair<int,int> head{0, 0};
+    do {
+        head.first = rng_engine() % grid;
+        head.second = rng_engine() % grid;
+    } while (std::find(greens.begin(), greens.end(), head) != greens.end()
+            || head == red);
+    snake.push_back(head);
+    for (int i = 0; i < 2; ++i) {
+        std::pair<int,int> segment{0, 0};
+        std::pair<int,int> prev = snake.back();
+        do {
+            segment.first = prev.first;
+            segment.second = prev.second;
+            int dir = rng_engine() % 4;
+            switch (dir) {
+                case 0: segment.second -= 1; break; // UP
+                case 1: segment.second += 1; break; // DOWN
+                case 2: segment.first -= 1; break; // LEFT
+                case 3: segment.first += 1; break; // RIGHT
+            }
+        } while (std::find(snake.begin(), snake.end(), segment) != snake.end());
+        snake.push_back(segment);
     }
 
-    /**
-     * @brief Get direction from head to neck (used to forbid instant reverse).
-     *
-     * @param snake Body with head at index 0.
-     * @return Dir toward the neck, or NONE if snake length < 2.
-     */
-    static Dir get_neck_dir(const std::vector<std::pair<int,int>>& snake) {
-        if (snake.size() < 2) return Dir::NONE;
-        int hx = snake[0].first;
-        int hy = snake[0].second;
-        int nx = snake[1].first;
-        int ny = snake[1].second;
-        int dx = nx - hx;
-        int dy = ny - hy;
-        if (dx ==  0 && dy == -1) return Dir::UP;
-        if (dx ==  0 && dy ==  1) return Dir::DOWN;
-        if (dx == -1 && dy ==  0) return Dir::LEFT;
-        if (dx ==  1 && dy ==  0) return Dir::RIGHT;
-        return Dir::NONE;
+    // place green apples
+    for (int i = 0; i < 2; ++i) {
+        std::pair<int,int> green{0, 0};
+        do {
+            green.first = rng_engine() % grid;
+            green.second = rng_engine() % grid;
+        } while (std::find(greens.begin(), greens.end(), green) != greens.end() ||
+                std::find(snake.begin(), snake.end(), green) != snake.end());
+        greens.push_back(green);
     }
 
-     /**
-      * @brief Reset the board to a fresh random state.
-      *
-      * Rules:
-      *  - place two distinct green apples and one red apple,
-      *  - place a contiguous 3-cell snake not colliding with apples,
-      *  - set head_dir opposite to neck direction,
-      *  - ensure the very first forward move does not immediately collide.
-      *
-      * @param g New grid size.
-      */
-    void reset_board(int grid_size) {
-        grid = grid_size;
+    // place red apple
+    do {
+        red.first = rng_engine() % grid;
+        red.second = rng_engine() % grid;
+    } while (std::find(greens.begin(), greens.end(), red) != greens.end() ||
+            std::find(snake.begin(), snake.end(), red) != snake.end());
 
-        snake.clear();
-        greens.clear();
-        red = {-1, -1};
-        game_over = false;
+    head_dir = opposite(get_neck_dir(snake));
 
-        // place green apples
-        for (int i = 0; i < 2; ++i) {
-            std::pair<int,int> green{0, 0};
+    head = snake.front();
+    auto [dx, dy] = vec(head_dir);
+    int nx = head.first + dx;
+    int ny = head.second + dy;
+
+    while (nx < 0 || nx >= grid || ny < 0 || ny >= grid ||
+            std::find(snake.begin(), snake.end(), std::make_pair(nx, ny)) != snake.end()) {
+        head_dir = static_cast<Dir>((static_cast<int>(head_dir) + 1) % 4);
+        std::tie(dx, dy) = vec(head_dir);
+        nx = head.first + dx;
+        ny = head.second + dy;
+    }
+}
+
+
+MOVE_RESULT Engine::step_forward(bool printing) {
+    if (game_over) return MOVE_RESULT::MOVE_COLLISION;
+
+    const int N = grid;
+    const auto [dx, dy] = vec(head_dir);
+    const int hx = snake[0].first;
+    const int hy = snake[0].second;
+    const int nx = hx + dx;
+    const int ny = hy + dy;
+
+    // collision (wall or self)
+    if (nx < 0 || nx >= N || ny < 0 || ny >= N ||
+        std::find(snake.begin(), snake.end(), std::make_pair(nx, ny)) != snake.end()) {
+        game_over = true;
+        return MOVE_RESULT::MOVE_COLLISION;
+    }
+
+    // eat green -> grow
+    auto itg = std::find(greens.begin(), greens.end(), std::make_pair(nx, ny));
+    if (itg != greens.end()) {
+        // remove eaten one
+        greens.erase(itg);
+        // spawn new green not on snake or other green (unless grid full)
+        if ((int)snake.size() != N * N) {
+            std::pair<int,int> green{0,0};
             do {
-                green.first = rng() % grid;
-                green.second = rng() % grid;
-            } while (std::find(greens.begin(), greens.end(), green) != greens.end());
+                green.first = rng_engine() % grid;
+                green.second = rng_engine() % grid;
+            } while (std::find(greens.begin(), greens.end(), green) != greens.end() ||
+                    std::find(snake.begin(), snake.end(), green) != snake.end() ||
+                    green == red);
             greens.push_back(green);
         }
-
-        // place red apple
-        do {
-            red.first = rng() % grid;
-            red.second = rng() % grid;
-        } while (std::find(greens.begin(), greens.end(), red) != greens.end());
-
-        // place snake
-        std::pair<int,int> head{0, 0};
-        do {
-            head.first = rng() % grid;
-            head.second = rng() % grid;
-        } while (std::find(greens.begin(), greens.end(), head) != greens.end()
-                || head == red);
-        snake.push_back(head);
-        for (int i = 0; i < 2; ++i) {
-            std::pair<int,int> segment{0, 0};
-            std::pair<int,int> prev = snake.back();
-            do {
-                segment.first = prev.first;
-                segment.second = prev.second;
-                int dir = rng() % 4;
-                switch (dir) {
-                    case 0: segment.second -= 1; break; // UP
-                    case 1: segment.second += 1; break; // DOWN
-                    case 2: segment.first -= 1; break; // LEFT
-                    case 3: segment.first += 1; break; // RIGHT
-                }
-            } while (std::find(snake.begin(), snake.end(), segment) != snake.end()
-                    || std::find(greens.begin(), greens.end(), segment) != greens.end()
-                    || segment == red);
-            snake.push_back(segment);
-        }
-
-        head_dir = opposite(get_neck_dir(snake));
-
-        head = snake.front();
-        auto [dx, dy] = vec(head_dir);
-        int nx = head.first + dx;
-        int ny = head.second + dy;
-
-        while (nx < 0 || nx >= grid || ny < 0 || ny >= grid ||
-               std::find(snake.begin(), snake.end(), std::make_pair(nx, ny)) != snake.end()) {
-            head_dir = static_cast<Dir>((static_cast<int>(head_dir) + 1) % 4);
-            std::tie(dx, dy) = vec(head_dir);
-            nx = head.first + dx;
-            ny = head.second + dy;
-        }
+        // grow: new head + keep all segments
+        std::vector<std::pair<int,int>> newsnake;
+        newsnake.emplace_back(nx, ny);
+        newsnake.insert(newsnake.end(), snake.begin(), snake.end());
+        snake.swap(newsnake);
+        if (printing) print_head_vision();
+        return MOVE_RESULT::MOVE_GREEN_APPLE;
     }
 
-    /**
-     * @brief Move the snake forward one step according to current head_dir.
-     *
-     * Handles collisions, eating green/red apples, growing/shrinking.
-     * Sets game_over flag if the move results in a collision or invalid state.
-     */
-    void step_forward() {
-        if (game_over) return;
-
-        const int N = grid;
-        const auto [dx, dy] = vec(head_dir);
-        const int hx = snake[0].first;
-        const int hy = snake[0].second;
-        const int nx = hx + dx;
-        const int ny = hy + dy;
-
-        // collision (wall or self)
-        if (nx < 0 || nx >= N || ny < 0 || ny >= N ||
-            std::find(snake.begin(), snake.end(), std::make_pair(nx, ny)) != snake.end()) {
+    // eat red -> shrink
+    if (red == std::make_pair(nx, ny)) {
+        if ((int)snake.size() == 1) {
             game_over = true;
-            return;
+            return MOVE_RESULT::MOVE_RED_APPLE;
         }
+        // respawn red not on greens/snake (unless grid full)
+        do {
+            red.first = rng_engine() % grid;
+            red.second = rng_engine() % grid;
+        } while (std::find(greens.begin(), greens.end(), red) != greens.end() ||
+                std::find(snake.begin(), snake.end(), red) != snake.end());
+        // shrink: new head + drop last 2 segments
+        std::vector<std::pair<int,int>> newsnake;
+        newsnake.emplace_back(nx, ny);
+        if (snake.size() >= 2) {
+            newsnake.insert(newsnake.end(), snake.begin(), snake.end() - 2);
+        }
+        snake.swap(newsnake);
+        if (printing) print_head_vision();
+        return MOVE_RESULT::MOVE_RED_APPLE;
+    }
 
-        // eat green -> grow
-        auto itg = std::find(greens.begin(), greens.end(), std::make_pair(nx, ny));
-        if (itg != greens.end()) {
-            // remove eaten one
-            greens.erase(itg);
-            // spawn new green not on snake or other green (unless grid full)
-            if ((int)snake.size() != N * N) {
-                std::pair<int,int> green{0,0};
-                do {
-                    green.first = rng() % grid;
-                    green.second = rng() % grid;
-                } while (std::find(greens.begin(), greens.end(), green) != greens.end() ||
-                        std::find(snake.begin(), snake.end(), green) != snake.end() ||
-                        green == red);
-                greens.push_back(green);
+    // normal move: new head + drop tail
+    {
+        std::vector<std::pair<int,int>> newsnake;
+        newsnake.emplace_back(nx, ny);
+        newsnake.insert(newsnake.end(), snake.begin(), snake.end() - 1);
+        snake.swap(newsnake);
+        if (printing) print_head_vision();
+        return MOVE_RESULT::MOVE_OK;
+    }
+}
+
+
+void Engine::change_dir(const std::string& new_dir_s) {
+    Dir new_dir = from_str(new_dir_s);
+    Dir neck = get_neck_dir(snake);
+    if (new_dir != neck && new_dir != Dir::NONE) {
+        head_dir = new_dir;
+    }
+}
+
+
+py::dict Engine::get_board() const {
+    py::dict b;
+    b["snake"] = snake; // list of (x,y) tuples
+    b["greens"] = greens; // list of (x,y)
+    b["red"] = py::make_tuple(red.first, red.second); // (x,y) or None in your logic
+    b["head_dir"] = to_str(head_dir);
+    b["game_over"] = game_over;
+    return b;
+}
+
+
+std::vector<std::string> Engine::get_head_vision() {
+    std::pair<int,int> head = snake[0];
+    std::vector<std::string> vision;
+    for (Dir d : {Dir::UP, Dir::RIGHT, Dir::DOWN, Dir::LEFT}) {
+        auto [dx, dy] = vec(d);
+        int x = head.first;
+        int y = head.second;
+        std::string cell_contents = "";
+        while (true) {
+            x += dx;
+            y += dy;
+            if (x < 0 || x >= grid || y < 0 || y >= grid) {
+                cell_contents += "W";
+                break;
             }
-            // grow: new head + keep all segments
-            std::vector<std::pair<int,int>> newsnake;
-            newsnake.emplace_back(nx, ny);
-            newsnake.insert(newsnake.end(), snake.begin(), snake.end());
-            snake.swap(newsnake);
-            print_head_vision();
-            return;
-        }
-
-        // eat red -> shrink
-        if (red == std::make_pair(nx, ny)) {
-            if ((int)snake.size() == 1) {
-                game_over = true;
-                return;
+            std::pair<int,int> pos{x, y};
+            if (std::find(snake.begin(), snake.end(), pos) != snake.end()) {
+                cell_contents += "S";
+            } else if (std::find(greens.begin(), greens.end(), pos) != greens.end()) {
+                cell_contents += "G";
+            } else if (red == pos) {
+                cell_contents += "R";
+            } else {
+                cell_contents += "0";
             }
-            // respawn red not on greens/snake (unless grid full)
-            do {
-                red.first = rng() % grid;
-                red.second = rng() % grid;
-            } while (std::find(greens.begin(), greens.end(), red) != greens.end() ||
-                    std::find(snake.begin(), snake.end(), red) != snake.end());
-            // shrink: new head + drop last 2 segments
-            std::vector<std::pair<int,int>> newsnake;
-            newsnake.emplace_back(nx, ny);
-            if (snake.size() >= 2) {
-                newsnake.insert(newsnake.end(), snake.begin(), snake.end() - 2);
-            }
-            snake.swap(newsnake);
-            print_head_vision();
-            return;
         }
-
-        // normal move: new head + drop tail
-        {
-            std::vector<std::pair<int,int>> newsnake;
-            newsnake.emplace_back(nx, ny);
-            newsnake.insert(newsnake.end(), snake.begin(), snake.end() - 1);
-            snake.swap(newsnake);
-            print_head_vision();
-        }
+        vision.push_back(cell_contents);
     }
+    return vision;
+}
 
-    /**
-     * @brief Change the snake's head direction safely.
-     *
-     * Prevents instant reversal into the neck segment.
-     *
-     * @param new_dir_s New direction as a string ("UP", "DOWN", "LEFT", "RIGHT").
-     */
-    void change_dir(std::string& new_dir_s) {
-        Dir new_dir = from_str(new_dir_s);
-        Dir neck = get_neck_dir(snake);
-        if (new_dir != neck && new_dir != Dir::NONE) {
-            head_dir = new_dir;
-        }
-    }
 
-    /**
-     * @brief Get the current board state as a Python dictionary.
-     *
-     * The dictionary contains:
-     *  - "snake": list of (x,y) tuples for the snake body,
-     *  - "greens": list of (x,y) tuples for green apples,
-     *  - "red": (x,y) tuple for red apple,
-     *  - "head_dir": string for head direction,
-     *  - "game_over": boolean flag.
-     *
-     * @return Python dictionary representing the board state.
-     */
-    py::dict get_board() const {
-        py::dict b;
-        b["snake"] = snake; // list of (x,y) tuples
-        b["greens"] = greens; // list of (x,y)
-        b["red"] = py::make_tuple(red.first, red.second); // (x,y) or None in your logic
-        b["head_dir"] = to_str(head_dir);
-        b["game_over"] = game_over;
-        return b;
+void Engine::print_head_vision() {
+    auto vision = get_head_vision();
+    const size_t left_len = vision[3].length();
+    const size_t up_len = vision[0].length();
+    for (int i = (int)up_len - 1; i >= 0; i--) {
+        std::string line(left_len, ' ');
+        line += vision[0][i];
+        std::cout << line << std::endl;
     }
-
-    /**
-     * @brief Get the contents of the line of cells in the four cardinal directions from the head.
-     *
-     * For each direction (UP, RIGHT, DOWN, LEFT), returns a string indicating
-     * what is in line of this direction until a wall is hit:
-     *  - "0" is an empty cell,
-     *  - "W" is a wall,
-     *  - "S" is the snake's body,
-     *  - "G" is a green apple,
-     *  - "R" is the red apple,
-     *
-     * @return Vector of strings for each direction in order: UP, RIGHT, DOWN, LEFT.
-     */
-    std::vector<std::string> get_head_vision() {
-        std::pair<int,int> head = snake[0];
-        std::vector<std::string> vision;
-        for (Dir d : {Dir::UP, Dir::RIGHT, Dir::DOWN, Dir::LEFT}) {
-            auto [dx, dy] = vec(d);
-            int x = head.first;
-            int y = head.second;
-            std::string cell_contents = "";
-            while (true) {
-                x += dx;
-                y += dy;
-                if (x < 0 || x >= grid || y < 0 || y >= grid) {
-                    cell_contents += "W";
-                    break;
-                }
-                std::pair<int,int> pos{x, y};
-                if (std::find(snake.begin(), snake.end(), pos) != snake.end()) {
-                    cell_contents += "S";
-                } else if (std::find(greens.begin(), greens.end(), pos) != greens.end()) {
-                    cell_contents += "G";
-                } else if (red == pos) {
-                    cell_contents += "R";
-                } else {
-                    cell_contents += "0";
-                }
-            }
-            vision.push_back(cell_contents);
-        }
-        return vision;
+    std::reverse(vision[3].begin(), vision[3].end());
+    std::cout << vision[3] << "H" << vision[1] << std::endl;
+    for (size_t i = 0; i < vision[2].length(); ++i) {
+        std::string line(left_len, ' ');
+        line += vision[2][i];
+        std::cout << line << std::endl;
     }
-
-    /**
-     * @brief Print the head vision in a formatted way.
-     *
-     * Displays the contents in the four cardinal directions from the head.
-     */
-    void print_head_vision() {
-        auto vision = get_head_vision();
-        const size_t left_len = vision[3].length();
-        const size_t up_len = vision[0].length();
-        for (int i = (int)up_len - 1; i >= 0; i--) {
-            std::string line(left_len, ' ');
-            line += vision[0][i];
-            std::cout << line << std::endl;
-        }
-        std::reverse(vision[3].begin(), vision[3].end());
-        std::cout << vision[3] << "H" << vision[1] << std::endl;
-        for (size_t i = 0; i < vision[2].length(); ++i) {
-            std::string line(left_len, ' ');
-            line += vision[2][i];
-            std::cout << line << std::endl;
-        }
-        std::cout << std::endl;
-    }
-};
+    std::cout << std::endl;
+}

@@ -134,6 +134,8 @@ def main():
     models_path = root_path / "models"
     assets_path = root_path / "assets"
 
+    trainer = agent.Train()
+
     running = True
 
     while running:
@@ -141,8 +143,7 @@ def main():
         if choice == "play":
             running = game_loop(screen, grid_size=current_grid, assets_path=assets_path)
         elif choice == "ai":
-            pass
-            # start AI-controlled game
+            trainer.train()
         elif choice == "settings":
             choice, grid_size, model = settings_screen(screen, grid_size=current_grid, model_name=current_model, models_dir=models_path)
             if choice == "save":
