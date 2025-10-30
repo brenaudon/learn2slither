@@ -4,7 +4,7 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 ext_modules = [
     Pybind11Extension(
         "agent._agent", # import name: `import agent`
-        ["src/agent/learn2slither.cpp"],
+        ["src/agent/learn2slither.cpp", "src/agent/engine.cpp"],
         cxx_std=17, # use C++17
         define_macros=[("PYBIND11_DETAILED_ERROR_MESSAGES", "1")],
     ),
